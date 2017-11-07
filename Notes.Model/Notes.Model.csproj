@@ -51,6 +51,7 @@
     <Compile Include="Classes\Repository.cs" />
     <Compile Include="Interfaces\IDataBase.cs" />
     <Compile Include="Interfaces\IObjectId.cs" />
+    <Compile Include="Interfaces\IObservable.cs" />
     <Compile Include="Interfaces\IRepository.cs" />
     <Compile Include="Model.cs" />
     <Compile Include="Classes\Note.cs" />

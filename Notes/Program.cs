@@ -1,28 +1,36 @@
 ﻿using System;
 using System.Collections.Generic;
+using Notes.Classes;
 using Notes.Model;
 
 namespace Notes
 {
     class Program
     {
+        static View.View blView = new View.View();
+
         static void Main(string[] args)
         {
             View.View blView = new View.View();
 
             Model.Model blModel = new Model.Model();
 
+            Observer observer = new Observer(blModel);
+
             Note newNote;
 
-            List<Note> dbCopy = new List<Note>();
+            List<Note> temp = new List<Note>();
 
-            string userAnswer = "";                 // result of user's choice from Menu
+            string userAnswer = ""; // result of user's choice from Menu
 
-            string noteText;                        // the text of new note
+            string noteText; // the text of new note
 
-            int numberOfNote;                       // note's number
+            int numberOfNote; // note's number
 
-            while (userAnswer != "E" && userAnswer != "e")  // Exit
+            string modelAnswer = "";
+
+
+            while (userAnswer != "E" && userAnswer != "e") // Exit
             {
 
                 userAnswer = WriteInfo_ReadAnswer(Menu(0));
@@ -32,36 +40,27 @@ namespace Notes
                     case "C":
                     case "c":
 
-                        noteText = WriteInfo_ReadAnswer(Menu(4));   // get text of new note
+                        noteText = WriteInfo_ReadAnswer(Menu(4)); // get text of new note
 
                         newNote = new Note(noteText);
 
-                        blModel.ToDo("Create", newNote, out List<Note> newCollection, out String modelAnswer);
+                        blModel.ToDo("Create", newNote);
 
-                        if (newCollection != null)  // if element was successfully added to DB than synchronizing collections
-                        {
-                            dbCopy = newCollection;
-                        }
-                            
-                        CheckModelAnswer(modelAnswer);  // checking if were errors during process of addition new element to DB 
+                        CheckModelAnswer(observer.status); // checking if were errors during process of addition new element to DB 
 
                         break;
 
                     case "D":
                     case "d":
+                        temp = observer.GetAll();
 
-                        noteText = WriteInfo_ReadAnswer(Menu(1));   // get string number of element that should be deleted
+                        noteText = WriteInfo_ReadAnswer(Menu(1)); // get string number of element that should be deleted
 
-                        numberOfNote = checkNoteNumber(noteText);   // checking if string number is int and it is in the range of collection
+                        numberOfNote = checkNoteNumber(noteText, temp); // checking if string number is int and it is in the range of collection
 
-                        if (numberOfNote != -123)                   // if number = -123 than was typed wrong note's number 
+                        if (numberOfNote != -123) // if number = -123 than was typed wrong note's number 
                         {
-                            blModel.ToDo("Delete", dbCopy[numberOfNote], out newCollection, out modelAnswer);
-
-                            if (newCollection != null)
-                            {
-                                dbCopy = newCollection; // if element was successfully deleted from DB than synchronizing collections
-                            }
+                            blModel.ToDo("Delete", temp[numberOfNote]);
                         }
                         else
                         {
@@ -69,7 +68,7 @@ namespace Notes
                             break;
                         }
 
-                        CheckModelAnswer(modelAnswer); // checking if were errors during process of addition new element to DB 
+                        CheckModelAnswer(observer.status); // checking if were errors during process of addition new element to DB 
 
                         break;
 
@@ -77,35 +76,37 @@ namespace Notes
                     case "R":
                     case "r":
 
-                        if (dbCopy.Count == 0)  // if local copy of DB wasn't yet synchronized with main DB
-                        {
-                            dbCopy = blModel.FirstSynchronize();    // doing synchonizing
-                        }
-                        
+                        blModel.ToDo("Read", null);
+
+                        temp = observer.GetAll();
+
                         noteText = WriteInfo_ReadAnswer(Menu(7));
-                        
-                        numberOfNote = checkNoteNumber(noteText);
+
+                        numberOfNote = checkNoteNumber(noteText, temp);
 
                         if (numberOfNote != -123)
                         {
-                            if (dbCopy.Count > 0)   // if DB is not empty
+                            if (temp.Count > 0) // if DB is not empty
                             {
-                                SetNumbers();       // number each note
+                                for (int i = 0; i < temp.Count; i++)
+                                {
+                                    temp[i].Id = i;
+                                }                       // number each note
 
                                 if (numberOfNote == -1)
                                 {
-                                    modelAnswer = Convert(dbCopy);  // show all notes
+                                    modelAnswer = Convert(temp); // show all notes
                                 }
                                 else
                                 {
-                                    newNote = dbCopy[numberOfNote];
-                                    List<Note> temp = new List<Note>(); // show selected note
-                                    temp.Add(newNote);
-                                    modelAnswer = Convert(temp);   
+                                    newNote = temp[numberOfNote];
+                                    List<Note> tempSelected = new List<Note>(); // show selected note
+                                    tempSelected.Add(newNote);
+                                    modelAnswer = Convert(tempSelected);
                                 }
 
                                 blView.ShowInfo(modelAnswer);
-                            }  
+                            }
                         }
                         else
                         {
@@ -123,18 +124,19 @@ namespace Notes
 
                         bool shouldChange = false;
 
+                        temp = observer.GetAll();
 
                         noteText = WriteInfo_ReadAnswer(Menu(1));
 
-                        numberOfNote = checkNoteNumber(noteText);
+                        numberOfNote = checkNoteNumber(noteText,temp);
 
                         if (numberOfNote != -123)
                         {
-                            noteText = WriteInfo_ReadAnswer(Menu(5, dbCopy[numberOfNote].Status));
+                            noteText = WriteInfo_ReadAnswer(Menu(5, temp[numberOfNote].Status));
 
-                            if (noteText == "Y" || noteText == "y")         // checking if user wants to change the status
+                            if (noteText == "Y" || noteText == "y") // checking if user wants to change the status
                             {
-                                if (dbCopy[numberOfNote].Status == "Current")
+                                if (temp[numberOfNote].Status == "Current")
                                 {
                                     newStatus = "Finished";
                                 }
@@ -147,11 +149,11 @@ namespace Notes
                             }
                             else
                             {
-                                newStatus = dbCopy[numberOfNote].Status;
+                                newStatus = temp[numberOfNote].Status;
                             }
 
 
-                            noteText = WriteInfo_ReadAnswer(Menu(6, dbCopy[numberOfNote].Title));
+                            noteText = WriteInfo_ReadAnswer(Menu(6, temp[numberOfNote].Title));
 
                             if (noteText == "Y" || noteText == "y") // checking if user wants to change the note's text
                             {
@@ -161,22 +163,16 @@ namespace Notes
                             }
                             else
                             {
-                                if (shouldChange == true) newText = dbCopy[numberOfNote].Title;
+                                if (shouldChange == true) newText = temp[numberOfNote].Title;
                             }
 
                             if (shouldChange == true)
                             {
                                 newNote = new Note(newText, newStatus, numberOfNote);
 
-                                blModel.ToDo("Change", newNote, out newCollection, out modelAnswer);
+                                blModel.ToDo("Change", newNote);
 
-                                if (newCollection != null)
-                                {
-                                    dbCopy = newCollection;
-                                }
-
-                                CheckModelAnswer(modelAnswer);
-
+                                CheckModelAnswer(observer.status);
                             }
                         }
                         else
@@ -190,117 +186,107 @@ namespace Notes
                         break;
                 }
             }
+        }
 
+        
 
-            // method numbers each note before showing
+        // Method convert to string all list's elements
 
-            void SetNumbers()
+        public static string Convert(List<Note> collection)
+        {
+            string outputText = "";
+
+            foreach (var element in collection)
             {
-                for (int i = 0; i < dbCopy.Count; i++)
+                if (outputText == "")
                 {
-                    dbCopy[i].Id = i;
-                }
-            }
-
-
-            // method checks input info from user if it is a number
-
-            int checkNoteNumber(string number)
-            {
-                int intNumber;
-
-                try
-                {
-                    intNumber = int.Parse(number);
-
-                    if (dbCopy.Count <= intNumber || intNumber < -1) // cheking if an input number in the range of note's list 
-                    {
-                        intNumber = -123;                           // if not -123 returns
-                    }
-                }
-                catch
-                {
-                    intNumber = -123;
-                }
-
-                return intNumber;
-            }
-
-
-            // method checks model's result of add/delete/update operations: ok or error
-
-            void CheckModelAnswer(string answer)
-            {
-                if (answer == "ok")
-                {
-                    blView.ShowInfo(Menu(3));
+                    outputText =
+                        $"\r \n Note: {element.Id}         Created: {element.DateOfCreation.ToString(@"dd\/MM\/yyyy HH\:mm\:ss tt")}       Status: {element.Status} \n \n {element.Title} \n";
                 }
                 else
                 {
-                    blView.ShowInfo(answer);
+                    outputText = outputText +
+                                 $"\r \n Note: {element.Id}         Created: {element.DateOfCreation.ToString(@"dd\/MM\/yyyy HH\:mm\:ss tt")}       Status: {element.Status} \n \n {element.Title} \n";
                 }
             }
+            return outputText;
+        }
 
+        // Menu
 
-            // method shows some text and waiting on user's choice
-
-            string WriteInfo_ReadAnswer(string text)
+        public static string Menu(int number, string additionalInfo = "")
+        {
+            switch (number)
             {
-                blView.ShowInfo(text);
-                return blView.GetInfo();
+                case 0:
+                    return
+                        "\r \n Please choose necessary command to be applied to notes: \r \n C: create   D: delete    R: read     U: update     E: exit \r \n";
+                case 1:
+                    return "\r \n Please type a note's number: \r \n";
+                case 2:
+                    return "\r \n Please type a key word, that should be found: \r \n";
+                case 3:
+                    return "\r \n Operation successfully done. \r \n";
+                case 4:
+                    return "\r \n Please type a note: \r \n";
+                case 5:
+                    return $"\r \n Current status is: {additionalInfo}. Should the status be changed? Y/N: \r \n";
+                case 6:
+                    return $"\r \n Current note is: {additionalInfo}. Should the note be changed? Y/N: \r \n";
+                case 7:
+                    return "\r \n Please type a note's number. If type -1 all notes will be shown. \r \n";
+                case 8:
+                    return "\r \n Wrong number. Please retype... \r \n";
+                default:
+                    return "\r \n Wrong command. Please retype... \r \n";
             }
+        }
 
+        // method shows some text and waiting on user's choice
 
-            // Menu
+        public static string WriteInfo_ReadAnswer(string text)
+        {
+            blView.ShowInfo(text);
+            return blView.GetInfo();
+        }
 
-            string Menu(int number, string additionalInfo = "")
+        // method checks input info from user if it is a number
+
+        public static int checkNoteNumber(string number, List<Note> list)
+        {
+            int intNumber;
+
+            try
             {
-                switch (number)
+                intNumber = int.Parse(number);
+
+                if (list.Count <= intNumber || intNumber < -1
+                ) // cheking if an input number in the range of note's list 
                 {
-                    case 0:
-                        return "\r \n Please choose necessary command to be applied to notes: \r \n C: create   D: delete    R: read     U: update     E: exit \r \n";
-                    case 1:
-                        return "\r \n Please type a note's number: \r \n";
-                    case 2:
-                        return "\r \n Please type a key word, that should be found: \r \n";
-                    case 3:
-                        return "\r \n Operation successfully done. \r \n";
-                    case 4:
-                        return "\r \n Please type a note: \r \n";
-                    case 5:
-                        return $"\r \n Current status is: {additionalInfo}. Should the status be changed? Y/N: \r \n";
-                    case 6:
-                        return $"\r \n Current note is: {additionalInfo}. Should the note be changed? Y/N: \r \n";
-                    case 7:
-                        return "\r \n Please type a note's number. If type -1 all notes will be shown. \r \n";
-                    case 8:
-                        return "\r \n Wrong number. Please retype... \r \n";
-                    default:
-                        return "\r \n Wrong command. Please retype... \r \n";
+                    intNumber = -123; // if not -123 returns
                 }
             }
-
-
-            // Method convert to string all list's elements
-
-            string Convert(List<Note> collection)
+            catch
             {
-                string outputText = "";
-
-                foreach (var element in collection)
-                {
-                    if (outputText == "")
-                    {
-                        outputText = $"\r \n Note: {element.Id}         Created: {element.DateOfCreation.ToString(@"dd\/MM\/yyyy HH\:mm\:ss tt")}       Status: {element.Status} \n \n {element.Title} \n";
-                    }
-                    else
-                    {
-                        outputText = outputText + $"\r \n Note: {element.Id}         Created: {element.DateOfCreation.ToString(@"dd\/MM\/yyyy HH\:mm\:ss tt")}       Status: {element.Status} \n \n {element.Title} \n"; 
-                    }
-                }
-                return outputText;
+                intNumber = -123;
             }
 
+            return intNumber;
+        }
+
+
+        // method checks model's result of add/delete/update operations: ok or error
+
+        public static void CheckModelAnswer(string answer)
+        {
+            if (answer == "ok")
+            {
+                blView.ShowInfo(Menu(3));
+            }
+            else
+            {
+                blView.ShowInfo(answer);
+            }
         }
     }
 }
